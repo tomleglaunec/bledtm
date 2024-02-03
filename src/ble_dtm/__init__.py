@@ -1,3 +1,5 @@
+__version__ = "0.1.0a1"
+
 from .ble_dtm import (
     DirectTestMode,
     DUTResponse,
@@ -9,3 +11,15 @@ from .ble_dtm import (
     Status,
     ReservedForFutureUseError,
 )
+
+__all__ = [
+    "DirectTestMode",
+    "DUTResponse",
+    "LE_Packet_Report",
+    "LE_Test_Status",
+    "Command",
+    "Event",
+    "PacketType",
+    "Status",
+    "ReservedForFutureUseError",
+]

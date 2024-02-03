@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ble-dtm"
-version = "0.0.0"
+version = "0.1.0a1"
 authors = [{name = "Tom Benezech", email = "tom@internet-of-tom.fr"}]
 description = "A module to control your Bluetooth® Low Energy devices in Direct Test Mode."
 dependencies = [
