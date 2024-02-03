@@ -113,6 +113,7 @@ class DirectTestMode:
         return cast(LE_Test_Status, self._read())
 
     def _write_test(self, cmd: int, frequency: int, length: int, pkt: PacketType) -> None:
+        """Format and sends Transmitter/Receiver Test command."""
         if frequency < 0 or frequency > 0x27:
             raise ReservedForFutureUseError("Argument frequency must be in range 0 to 39.")
 
@@ -122,15 +123,17 @@ class DirectTestMode:
         if not isinstance(pkt, PacketType):
             raise TypeError("Argument pkt must be of type PacketType.")
         # See paragraph 3.3.2 of Bluetooth Core v5.4, Vol 6, Part F.
-        message = (cmd << 14) + (frequency << 8) + (length << 2) + pkt.value
-        n = self._serial.write(message.to_bytes(2))
-        if not n == 2:
-            raise RuntimeWarning(f"{n} byte(s) were sent, expected 2.")
+        self._write_raw((cmd << 14) + (frequency << 8) + (length << 2) + pkt.value)
 
     def _write_setup(self, cmd: int, control: int, parameter: int) -> None:
+        """Format and sends Test Setup/End command."""
         # See paragraph 3.3.2 of Bluetooth Core v5.4, Vol 6, Part F.
-        message = (cmd << 14) + (control << 8) + parameter
-        n = self._serial.write(message.to_bytes(2))
+        self._write_raw((cmd << 14) + (control << 8) + parameter)
+
+    def _write_raw(self, raw: int):
+        """Discard input buffer, convert raw message into 2 bytes and sends them to DUT."""
+        self._serial.reset_input_buffer()  # Makes sure that we only read the response from our message
+        n = self._serial.write(raw.to_bytes(2))
         if not n == 2:
             raise RuntimeWarning(f"{n} byte(s) were sent, expected 2.")
 
@@ -173,10 +176,12 @@ class DUTResponse(ABC):
 
     @property
     def event(self) -> Event:
+        """Returns associated event type."""
         return self._event
 
     @property
     def raw(self) -> int:
+        """Returns raw response (2 bytes) as integer."""
         return self._response
 
 
