@@ -19,6 +19,43 @@ class PacketType(IntEnum):
     VENDOR_SPECIFIC = 0b11
 
 
+class SetupControl(IntEnum):
+    RESET = 0x00
+    DATA_LENGTH = 0x01
+    PHY = 0x02
+    MODULATION_INDEX = 0x03
+    SUPPORTED_FEATURES = 0x04
+    READ_OPTION = 0x05
+    CONST_TONE_EXT_INFO = 0x06
+    CONST_TONE_EXT_SAMPLE = 0x07
+    ANTENNA = 0x08
+    POWER = 0x09
+
+
+class ParameterType(IntEnum):
+    pass
+
+
+class ParameterPHY(ParameterType):
+    LE_1M = 0x04
+    LE_2M = 0x08
+    LE_CODED_S8 = 0x0C
+    LE_CODED_S2 = 0x10
+
+
+class ParameterModulationIndex(ParameterType):
+    STANDARD = 0x00
+    STABLE = 0x04
+
+
+class ReadOption(ParameterType):
+    MAX_TX_OCTETS = 0x00
+    MAX_TX_TIME = 0x04
+    MAX_RX_OCTETS = 0x08
+    MAX_RX_TIME = 0x0C
+    MAX_CONST_TONE_EXT_LEN = 0x10
+
+
 class Event(IntEnum):
     LE_TEST_STATUS = 0
     LE_PACKET_REPORT = 1
@@ -130,7 +167,7 @@ class DirectTestMode:
         # See paragraph 3.3.2 of Bluetooth Core v5.4, Vol 6, Part F.
         self._write_raw((cmd << 14) + (control << 8) + parameter)
 
-    def _write_raw(self, raw: int):
+    def _write_raw(self, raw: int) -> None:
         """Discard input buffer, convert raw message into 2 bytes and sends them to DUT."""
         self._serial.reset_input_buffer()  # Makes sure that we only read the response from our message
         n = self._serial.write(raw.to_bytes(2))
@@ -169,8 +206,7 @@ class DUTResponse(ABC):
 
         packet = int.from_bytes(raw)
 
-        event_type = Event(packet & (1 << 15))
-        cls = LE_Test_Status if event_type == Event.LE_TEST_STATUS else LE_Packet_Report
+        cls = LE_Packet_Report if packet & (1 << 15) else LE_Test_Status
 
         return cls(packet)
 
