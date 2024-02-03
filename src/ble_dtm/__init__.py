@@ -1,6 +1,6 @@
 __version__ = "0.1.0a1"
 
-from .ble_dtm import (
+from .bledtm import (
     DirectTestMode,
     DUTResponse,
     LE_Packet_Report,
