@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ble-dtm"
+version = "0.0.0"
+authors = [{name = "Tom Benezech", email = "tom@internet-of-tom.fr"}]
+description = "A module to control your Bluetooth® Low Energy devices in Direct Test Mode."
+dependencies = [
+    "pyserial>=3.4"
+]
+readme = "README.md"
+license = {file = "LICENSE"}
