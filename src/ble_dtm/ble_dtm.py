@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC
-from typing import Optional
+from typing import Optional, cast
 from enum import IntEnum
 import serial
 
@@ -39,6 +39,7 @@ class DirectTestMode:
         port: Optional[str] = None,
         baudrate: int = 9600,
         timeout: float = 0.1,
+        reset: bool = True,
     ):
         if (ser is None and port is None) or ser and port:
             raise TypeError("Either serial instance OR port must be specified.")
@@ -51,17 +52,72 @@ class DirectTestMode:
         else:
             self._serial = serial.Serial(port=port, baudrate=baudrate, timeout=timeout)
 
-    def _write_test(self, cmd: int, frequency: int, length: int, pkt: int) -> None:
+        if reset:
+            rc = self.reset()
+            if rc.status == Status.ERROR:
+                raise RuntimeWarning(f"DUT failed to reset: {rc}")
+
+    def reset(self) -> LE_Test_Status:
+        """Resets DUT by sending a Le_Test_Setup command with control and parameter set to 0x0."""
+        self._write_setup(Command.LE_TEST_SETUP, 0, 0)
+        return cast(LE_Test_Status, self._read())
+    
+    def stop_test(self) -> LE_Packet_Report:
+        """Stops current test by sending a LE_Test_End command. Returns Packet report answered by DUT."""
+        # Core Specification permits Parameter from value 0x00 to 0x03 but doesn't explicitly specify behavior (no effect?).
+        # This implementation will only send Parameter of value 0.
+        self._write_setup(Command.LE_TEST_END, 0, 0)
+        return cast(LE_Packet_Report, self._read())
+
+    def start_transmitter_test(
+        self, frequency: int, length: int, pkt: PacketType
+    ) -> LE_Test_Status:
+        """Starts transmitter test by sending a LE_Transmitter_Test command.
+        Parameters:
+            frequency: channel N selection from 0 to 39; (2N + 2402) MHz (No correspondance with LE channels denomiation!)
+            length: length of packet payload in bits (limited to 63, if longer packet are needed see the setup command, for up to 255)
+            pkt: packet type. `PacketType.VENDOR_SPECIFIC` will result in vendor specific packet type for LE Uncoded PHYs and 11111111 for LE Coded PHY.
+        """
+        self._write_test(Command.LE_TRANSMITTER_TEST, frequency, length, pkt)
+        return cast(LE_Test_Status, self._read())
+
+    def start_receiver_test(
+        self, frequency: int, length: int, pkt: PacketType
+    ) -> LE_Test_Status:
+        """Starts receiver test by sending a LE_Receiver_Test command.
+        Parameters:
+            frequency: channel N selection from 0 to 39; (2N + 2402) MHz (No correspondance with LE channels denomiation!)
+            length: length of packet payload in bits (limited to 63, if longer packet are needed see the setup command, for up to 255)
+            pkt: packet type. `PacketType.VENDOR_SPECIFIC` will result in vendor specific packet type for LE Uncoded PHYs and 11111111 for LE Coded PHY.
+        """
+        self._write_test(Command.LE_RECEIVER_TEST, frequency, length, pkt)
+        return cast(LE_Test_Status, self._read())
+
+    def _write_test(
+        self, cmd: int, frequency: int, length: int, pkt: PacketType
+    ) -> None:
+        if frequency < 0 or frequency > 0x27:
+            raise ReservedForFutureUseError(
+                "Argument frequency must be in range 0 to 39."
+            )
+
+        if length < 0 or length > 0x3F:
+            raise ValueError(
+                "Argument length must be in range 0 to 63 (0x3F). See documentation for bigger payloads up to 255 bits."
+            )
+
+        if not isinstance(pkt, PacketType):
+            raise TypeError("Argument pkt must be of type PacketType.")
         # See paragraph 3.3.2 of Bluetooth Core v5.4, Vol 6, Part F.
-        message = ((cmd << 14) + (frequency << 8) + (length << 2) + pkt).to_bytes(2)
-        n = self._serial.write(message)
+        message = (cmd << 14) + (frequency << 8) + (length << 2) + pkt.value
+        n = self._serial.write(message.to_bytes(2))
         if not n == 2:
             raise RuntimeWarning(f"{n} byte(s) were sent, expected 2.")
 
     def _write_setup(self, cmd: int, control: int, parameter: int) -> None:
         # See paragraph 3.3.2 of Bluetooth Core v5.4, Vol 6, Part F.
-        message = ((cmd << 14) + (control << 8) + parameter).to_bytes(2)
-        n = self._serial.write(message)
+        message = ((cmd << 14) + (control << 8) + parameter)
+        n = self._serial.write(message.to_bytes(2))
         if not n == 2:
             raise RuntimeWarning(f"{n} byte(s) were sent, expected 2.")
 
