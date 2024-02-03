@@ -72,6 +72,22 @@ class DirectTestMode:
         self._write_setup(Command.LE_TEST_END, 0, 0)
         return cast(LE_Packet_Report, self._read())
 
+    def setup_test(self, control: int, parameter: int) -> LE_Test_Status:
+        """Send LE_Test_Setup command with specified control and parameter. Note: no data verification is provided except
+        basic overflow control.
+        Parameters:
+        control: int (6 bits)
+        parameter: int (8 bits)
+        """
+        if control < 0 or control > 0x3F:
+            raise ValueError("Argument control must be in range 0x00 to 0x3F.")
+
+        if parameter < 0 or parameter > 0xFF:
+            raise ValueError("Argument parameter must be in range 0x00 to 0x3F.")
+
+        self._write_setup(Command.LE_TEST_SETUP, control, parameter)
+        return cast(LE_Test_Status, self._read())
+
     def start_transmitter_test(self, frequency: int, length: int, pkt: PacketType) -> LE_Test_Status:
         """Starts receiver test by sending a LE_Receiver_Test command.
         Parameters:
@@ -119,7 +135,15 @@ class DirectTestMode:
             raise RuntimeWarning(f"{n} byte(s) were sent, expected 2.")
 
     def _read(self) -> DUTResponse:
-        return DUTResponse.from_raw(self._serial.read(2))
+        """Every command should be answered by a 2 bytes response from DUT."""
+        raw = self._serial.read(2)
+        if len(raw) < 2:
+            raise TimeoutError("Couldn't read expected 2 bytes before timeout.")
+
+        if self._serial.in_waiting > 0:
+            raise RuntimeError(f"Read expected 2 bytes, but {self._serial.in_waiting} are in buffer.")
+
+        return DUTResponse.from_raw(raw)
 
 
 class DUTResponse(ABC):
@@ -128,6 +152,7 @@ class DUTResponse(ABC):
     """
 
     _event: Event
+    _response: int
 
     @staticmethod
     def from_raw(raw: bytes) -> DUTResponse:
@@ -150,11 +175,16 @@ class DUTResponse(ABC):
     def event(self) -> Event:
         return self._event
 
+    @property
+    def raw(self) -> int:
+        return self._response
+
 
 class LE_Test_Status(DUTResponse):
     _st: Status
 
     def __init__(self, response: int) -> None:
+        self._response = response
         self._event = Event.LE_TEST_STATUS
         self._st = Status(response & 1)
 
@@ -186,6 +216,7 @@ class LE_Packet_Report(DUTResponse):
     _packet_count: int
 
     def __init__(self, response: int) -> None:
+        self._response = response
         self._event = Event.LE_PACKET_REPORT
         self._packet_count = response & 0x7FFF
 
