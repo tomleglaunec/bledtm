@@ -193,21 +193,27 @@ class LE_Test_Status(DUTResponse):
         """Return the status contained in the response from DUT."""
         return self._st
 
-    def decode_setup(self, ctrl: int):
+    def decode_setup(self, ctrl: int) -> int:
         """Decode Response field contained in LE_Test_Status event.
         As to Core Specification V5.4, this field has a meaning only in response to a LE_Test_Setup command with control
-        parameters `0x05` and `0x09`.
+        parameters `0x04`, `0x05` and `0x09`.
         Raise ReservedForFutureUseError for other control parameters code, or when status is Error, as the response field is
         Reserved for future use.
         """
         if self.status == Status.ERROR:
             raise ReservedForFutureUseError("Nothing to decode in Error status, Reserved for future use.")
 
+        if ctrl == 0x04:
+            # Values are contained in bits 1 to 9 (10 to 14 are reserved for future use)
+            return (self._response >> 1) & 0x1FF
+
         if ctrl == 0x05:
-            return ...
+            # Values are contained in bits 1 to 14
+            return (self._response >> 1) & 0x1FFF
 
         if ctrl == 0x09:
-            return ...
+            # Values are contained in bits 1 to 10 (11 to 14 are reserved for future use)
+            return (self._response >> 1) & 0x3FF
 
         raise ReservedForFutureUseError(f"Invalid control parameter code: {hex(ctrl)}." "Please check function documentation.")
 
