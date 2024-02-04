@@ -48,12 +48,27 @@ class ParameterModulationIndex(ParameterType):
     STABLE = 0x04
 
 
-class ReadOption(ParameterType):
+class ParameterReadOption(ParameterType):
     MAX_TX_OCTETS = 0x00
     MAX_TX_TIME = 0x04
     MAX_RX_OCTETS = 0x08
     MAX_RX_TIME = 0x0C
     MAX_CONST_TONE_EXT_LEN = 0x10
+
+
+class ParameterSampleConstantToneExtension(ParameterType):
+    SAMPLE_CONST_TONE_EXT_1US = 0x01
+    SAMPLE_CONST_TONE_EXT_2US = 0x02
+
+
+class ParameterAntennaSwitchingPattern(ParameterType):
+    PATTERN_A = 0x00
+    PATTERN_B = 0x01
+
+
+class ParameterPower(ParameterType):
+    MINIMUM = 0x7E
+    MAXIMUM = 0x7F
 
 
 class Event(IntEnum):
@@ -123,6 +138,49 @@ class DirectTestMode:
             raise ValueError("Argument parameter must be in range 0x00 to 0x3F.")
 
         self._write_setup(Command.LE_TEST_SETUP, control, parameter)
+        return cast(LE_Test_Status, self._read())
+
+    def setup_data_length(self, length: int) -> LE_Test_Status:
+        """Sets upper 2 bits (of 8) of data length for transmitter/receiver test. Parameters:
+        length: int (2 bits, range(0..3)) or 8 bits (only 2 MSBs will be written)
+        """
+        if length < 0 or length > 0xFF:
+            raise ValueError("Argument length must be uint8.")
+        if length > 0b11:
+            length = length >> 6
+            self._write_setup(Command.LE_TEST_SETUP, SetupControl.DATA_LENGTH, length)
+        return cast(LE_Test_Status, self._read())
+
+    def setup_phy(self, phy: ParameterPHY) -> LE_Test_Status:
+        """Sets PHY of DUT."""
+        if not isinstance(phy, ParameterPHY):
+            raise TypeError("Argument phy must be a ParameterPHY.")
+        self._write_setup(Command.LE_TEST_SETUP, SetupControl.PHY, phy)
+        return cast(LE_Test_Status, self._read())
+
+    def setup_modulation_index(self, index: ParameterModulationIndex) -> LE_Test_Status:
+        """Sets Receiver assumed transmitter modulation index type."""
+        if not isinstance(index, ParameterPHY):
+            raise TypeError("Argument index must be a ParameterModulationIndex.")
+        self._write_setup(Command.LE_TEST_SETUP, SetupControl.MODULATION_INDEX, index)
+        return cast(LE_Test_Status, self._read())
+
+    def setup_power(self, power: int | ParameterPower = ParameterPower.MAXIMUM) -> LE_Test_Status:
+        """Sets transmitter power level. The actual power will be the neareset to specified. Parameter:
+        power: int (in dBm from -127 to +20) or ParameterPower for minimum and maximum. Default to maximum.
+        """
+        if isinstance(power, ParameterPower):
+            power = power.value
+        if not isinstance(power, int):
+            raise TypeError("Argument power must be of type int or ParameterPower")
+
+        if power < -127 or power > 20 and power not in ParameterPower:
+            raise ValueError("Argument power must be in range -127 to +20 (dBm), or ParameterPower instance.")
+
+        if power not in ParameterPower:
+            power = int.from_bytes(power.to_bytes(1, signed=True))  # Encode power on 1 byte signed
+
+        self._write_setup(Command.LE_TEST_SETUP, SetupControl.POWER, power)
         return cast(LE_Test_Status, self._read())
 
     def start_transmitter_test(self, frequency: int, length: int, pkt: PacketType) -> LE_Test_Status:

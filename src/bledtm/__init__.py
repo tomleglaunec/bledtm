@@ -10,6 +10,12 @@ from .bledtm import (
     PacketType,
     Status,
     ReservedForFutureUseError,
+    ParameterPHY,
+    ParameterPower,
+    ParameterModulationIndex,
+    ParameterSampleConstantToneExtension,
+    ParameterAntennaSwitchingPattern,
+    ParameterReadOption,
 )
 
 __all__ = [
@@ -22,4 +28,10 @@ __all__ = [
     "PacketType",
     "Status",
     "ReservedForFutureUseError",
+    "ParameterPHY",
+    "ParameterPower",
+    "ParameterModulationIndex",
+    "ParameterSampleConstantToneExtension",
+    "ParameterAntennaSwitchingPattern",
+    "ParameterReadOption",
 ]
